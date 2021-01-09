@@ -1,0 +1,77 @@
+#!/usr/bin/env ruby
+
+require 'optparse'
+require 'date'
+
+def convert(str)
+  case str
+  when /(.*)\/(.*)/
+    return Float($1) / Float($2)
+  when /(.*)\.(.*)/
+    return Float(str)
+  else
+    return Integer(str)
+  end
+end
+
+def days_until_cap(accrual:, cap:, rate:)
+  days = 0
+  return days if accrual >= cap
+
+  daily_rate = rate / 365.0
+  while accrual < cap
+    accrual += daily_rate
+    days += 1
+  end
+  days
+end
+
+def main(options = {})
+  accrual = convert(options[:accrual])
+  cap = convert(options[:cap])
+  rate = convert(options[:rate])
+
+  days = days_until_cap(accrual: accrual, cap: cap, rate: rate)
+  if days == 0
+    puts "Already over cap :-( Please take some PTO ASAP!"
+  else
+    cap_date = Date.today + days
+    puts "Cap is hit in #{days} days - on #{cap_date}. Please take some PTO before then :-)"
+  end
+
+  return true
+end
+
+options = {}
+optparse = OptionParser.new do |opts|
+  opts.on("-aACCRUAL", "--accrual=ACCRUAL", "Set current accrual in number of days. Defaults to zero.") do |accrual|
+    options[:accrual] = accrual
+  end
+  opts.on("-cCAP", "--cap=CAP", "Set cap in number of days. Required argument.") do |cap|
+    options[:cap] = cap
+  end
+  opts.on("-rRATE", "--rate=RATE", "Set accrual rate in number of days per year. Required argument.") do |rate|
+    options[:rate] = rate
+  end
+  opts.on("-h", "--help", "Prints this help") do
+    puts opts
+    exit
+  end
+end
+
+begin
+  optparse.parse!
+  mandatory = [:cap, :rate]
+  missing = mandatory.select{ |param| options[param].nil? }
+  unless missing.empty?
+    raise OptionParser::MissingArgument.new(missing.join(', '))
+  end
+rescue OptionParser::InvalidOption, OptionParser::MissingArgument
+  puts $!.to_s
+  puts optparse
+  exit
+end
+
+options[:accrual] = 0.0 if options[:accrual].nil?
+
+main(options)
